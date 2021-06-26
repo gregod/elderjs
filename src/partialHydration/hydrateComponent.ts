@@ -8,76 +8,70 @@ export default function hydrateComponent(component: IComponentToHydrate) {
     ...component.hydrateOptions,
   };
 
-  if (hydrateInstructions.loading === 'eager') {
+
+  let render_component = function(component : IComponentToHydrate,target : string, props : string) : string{
     return `
-    <script type="module">
-    ${
-      component.prepared.clientPropsUrl
-        ? `Promise.all([import("${component.client}"), import("${component.prepared.clientPropsUrl}")]).then(([component, props])=>{
-          const ${component.name}Props =  props.default;`
-        : `import("${component.client}").then((component)=>{
-          const ${component.name}Props = ${component.prepared.clientPropsString || '{}'};`
-    }
-      new component.default({ 
-        target: document.getElementById('${component.name}'),
-        props: ${component.prepared.requirePropDecompression ?  '$ejs' : ''}(${component.name}Props),
-        hydrate: true
-        });
-    });
-    </script>
-    `;
+    new component.default({ 
+      target: ${target}),
+      props: ${component.prepared.requirePropDecompression ?  '$ejs' : ''}(${props}),
+      hydrate: true
+    });`
   }
 
-  return `
-  <script type="module">
-    ${
-      hydrateInstructions.timeout > 0
-        ? `requestIdleCallback(async function(){`
-        : `window.addEventListener('load', async function (event) {`
-    }
-    ${
-      component.prepared.clientPropsUrl
-        ? `
-      const propsFile = await import('${component.prepared.clientPropsUrl}');
-      const ${component.name}Props = propsFile.default;
-    `
-        : `
-      const ${component.name}Props = ${component.prepared.clientPropsString};    
-    `
-    }
-
-      const init${component.name} = (props) => {
+  if (hydrateInstructions.loading === 'eager') {
+    if (component.prepared.clientPropsUrl) {
+      return `
+      <script type="module">
+        Promise.all([import("${component.client}"), import("${component.prepared.clientPropsUrl}")]).then(([component, props])=>{
+          ${render_component(component,`document.getElementById('${component.name}')`, 'props.default')}
+        });
+      </script>
+      `;
+    } else {
+      return `
+      <script type="module">
         import("${component.client}").then((component)=>{
-          new component.default({ 
-            target: document.getElementById('${component.name}'),
-            props: ${component.prepared.requirePropDecompression ?  '$ejs' : ''}(props),
-            hydrate: true
-            });
+          ${render_component(component,`document.getElementById('${component.name}')`, component.prepared.clientPropsString || '{}')}
         });
-      };
-        var observer${component.id} = new IntersectionObserver(function(entries, observer) {
-          var objK = Object.keys(entries);
-          var objKl = objK.length;
-          var objKi = 0;
-          for (; objKi < objKl; objKi++) {
-            var entry = entries[objK[objKi]];
-            if (entry.isIntersecting) {
-              observer.unobserve(document.getElementById('${component.name}'));
-              if (document.eg_${component.name}) {
-                init${component.name}(${component.name}Props);
-              } else {
-                document.eg_${component.name} = true;
-                init${component.name}(${component.name}Props);
-              }
-            }
+      </script>
+      `;
+    }
+  } else {
+      return `
+      <script type="module">
+        ${
+          hydrateInstructions.timeout > 0
+            ? `requestIdleCallback(async function(){`
+            : `window.addEventListener('load', async function (event) {`
           }
-        }, {
-          rootMargin: '${hydrateInstructions.rootMargin}',
-          threshold: ${hydrateInstructions.threshold}
-        });
-        observer${component.id}.observe(document.getElementById('${component.name}'));
-      ${hydrateInstructions.timeout > 0 ? `}, {timeout: ${hydrateInstructions.timeout}});` : '});'}
-
-  </script>
-    `;
+          const ${component.name}Props = ${
+            component.prepared.clientPropsUrl ? `(await import('${component.prepared.clientPropsUrl}')).default` : component.prepared.clientPropsString
+          }
+          const init${component.name} = (props) => {
+            import("${component.client}").then((component)=>{
+              ${render_component(component,`document.getElementById('${component.name}')`,'props')}
+            });
+          };
+          var observer${component.id} = new IntersectionObserver(function(entries, observer) {
+            entries.forEach(entry => {
+              if (entry.isIntersecting) {
+                observer.unobserve(document.getElementById('${component.name}'));
+                if (document.eg_${component.name}) {
+                  init${component.name}(${component.name}Props);
+                } else {
+                  document.eg_${component.name} = true;
+                  init${component.name}(${component.name}Props);
+                }
+              }
+            });
+          }, {
+            rootMargin: '${hydrateInstructions.rootMargin}',
+            threshold: ${hydrateInstructions.threshold}
+          });
+          observer${component.id}.observe(document.getElementById('${component.name}'));
+        ${hydrateInstructions.timeout > 0 ? `}, {timeout: ${hydrateInstructions.timeout}});` : '});'}
+    
+      </script>
+        `;
+  }
 }
