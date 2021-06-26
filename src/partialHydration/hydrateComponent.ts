@@ -21,7 +21,7 @@ export default function hydrateComponent(component: IComponentToHydrate) {
   if (hydrateInstructions.loading === 'eager') {
     if (component.prepared.clientPropsUrl) {
       return `
-      <script>
+      <script type="module">
         Promise.all([import("${component.client}"), import("${component.prepared.clientPropsUrl}")]).then(([component, props])=>{
           ${render_component(component,`document.getElementById('${component.name}')`, 'props.default')}
         });
@@ -29,7 +29,7 @@ export default function hydrateComponent(component: IComponentToHydrate) {
       `;
     } else {
       return `
-      <script>
+      <script type="module">
         import("${component.client}").then((component)=>{
           ${render_component(component,`document.getElementById('${component.name}')`, component.prepared.clientPropsString || '{}')}
         });
@@ -38,7 +38,7 @@ export default function hydrateComponent(component: IComponentToHydrate) {
     }
   } else {
       return `
-      <script>
+      <script type="module">
         ${
           hydrateInstructions.timeout > 0
             ? `requestIdleCallback(async function(){`
@@ -48,7 +48,7 @@ export default function hydrateComponent(component: IComponentToHydrate) {
             entries.forEach(entry => {
               if (entry.isIntersecting) {
                 observer.unobserve(entry.target);
-                ${ component.prepared.clientPropsUrl ? `Promise.all([import("${component.client}"),import("${component.prepared.clientPropsUrl}")]).then(async ([component,props])=>{` : `import("${component.client}").then(async (component)=>{` }
+                ${ component.prepared.clientPropsUrl ? `Promise.all([import("${component.client}"),import("${component.prepared.clientPropsUrl}")]).then(([component,props])=>{` : `import("${component.client}").then((component)=>{` }
                   ${render_component(component,`entry.target`,
                     component.prepared.clientPropsUrl ? `props.default` : component.prepared.clientPropsString
                   )}
