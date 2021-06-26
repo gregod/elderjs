@@ -118,13 +118,13 @@ const hashCode = (s) => {
 };
 
 export default async (page: Page) => {
-  let decompressCode = `<script>$ejs = function(_ejs){return _ejs}</script>`;
   if (!page.settings.props.compress) {
     for (let dd = 0; dd < page.componentsToHydrate.length; dd += 1) {
       const component = page.componentsToHydrate[dd];
       if (component.props) {
         component.prepared.propsString = JSON.stringify(component.props);
       }
+      component.prepared.requirePropDecompression = false
     }
   } else {
     page.perf.start('prepareProps');
@@ -149,7 +149,7 @@ export default async (page: Page) => {
     });
 
     if (substitutions.size > 0) {
-      decompressCode = `<script>
+      let decompressCode = `<script>
       var $ejs = function(){
         var gt = function (_ejs) { return Object.prototype.toString.call(_ejs).slice(8, -1);};
         var ejs = new Map(${JSON.stringify(Array.from(initialValues))});
@@ -166,13 +166,20 @@ export default async (page: Page) => {
             return _ejs;
         };
       }();
-    </script>`;
+      </script>`;
+      page.beforeHydrateStack.push({
+        source: 'compressProps',
+        string: decompressCode,
+        priority: 100,
+      });
+
+      if (page.settings.debug.props) hydratedPropLength += decompressCode.length;
     }
 
-    if (page.settings.debug.props) hydratedPropLength += decompressCode.length;
 
     for (let ii = 0; ii < page.componentsToHydrate.length; ii += 1) {
       const component = page.componentsToHydrate[ii];
+      component.prepared.requirePropDecompression = true;
       // eslint-disable-next-line no-continue
       if (!component.props) continue; // skip components without props
       component.prepared.propsString = JSON.stringify(walkAndSubstitute(component.props, substitutions));
@@ -189,12 +196,7 @@ export default async (page: Page) => {
     page.perf.end('prepareProps');
   }
 
-  // always add decompress code even if it is just the basic return function.
-  page.beforeHydrateStack.push({
-    source: 'compressProps',
-    string: decompressCode,
-    priority: 100,
-  });
+
 
   for (let p = 0; p < page.componentsToHydrate.length; p += 1) {
     const component = page.componentsToHydrate[p];

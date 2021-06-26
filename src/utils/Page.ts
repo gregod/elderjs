@@ -145,6 +145,7 @@ export interface IComponentToHydrate {
     clientPropsString?: string;
     clientPropsUrl?: string;
     propsString?: string;
+    requirePropDecompression?: boolean
   };
 }
 

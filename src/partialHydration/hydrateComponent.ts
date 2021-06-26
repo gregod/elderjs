@@ -20,7 +20,7 @@ export default function hydrateComponent(component: IComponentToHydrate) {
     }
       new component.default({ 
         target: document.getElementById('${component.name}'),
-        props: $ejs(${component.name}Props),
+        props: ${component.prepared.requirePropDecompression ?  '$ejs' : ''}(${component.name}Props),
         hydrate: true
         });
     });
@@ -50,7 +50,7 @@ export default function hydrateComponent(component: IComponentToHydrate) {
         import("${component.client}").then((component)=>{
           new component.default({ 
             target: document.getElementById('${component.name}'),
-            props: $ejs(props),
+            props: ${component.prepared.requirePropDecompression ?  '$ejs' : ''}(props),
             hydrate: true
             });
         });
