@@ -5,7 +5,7 @@ import { Page } from '../utils';
 import { walkAndCount, prepareSubstitutions, walkAndSubstitute } from './propCompression';
 import windowsPathFix from '../utils/windowsPathFix';
 
-const defaultElderHelpers = (decompressCode, prefix, generateLazy) => `
+const defaultElderHelpers = (decompressCode, prefix) => `
 const $$ejs = (par,eager)=>{
   ${decompressCode}
   const prefix = '${prefix}';
@@ -22,9 +22,7 @@ const $$ejs = (par,eager)=>{
       });
     });
   };
-  ${
-    generateLazy
-      ? `const IO = ('IntersectionObserver' in window) ? new IntersectionObserver((entries, observer) => {
+  const IO = (!eager && 'IntersectionObserver' in window) ? new IntersectionObserver((entries, observer) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
         observer.unobserve(entry.target);
@@ -32,12 +30,11 @@ const $$ejs = (par,eager)=>{
         initComponent(entry.target,selected)
       }
     });
-  }, { rootMargin: "200px",threshold: 0}) : undefined;`
-      : ''
-  }
+  }, { rootMargin: "200px",threshold: 0}) : undefined;
+
   Object.keys(par).forEach(k => {
     const el = document.getElementById(k);
-    if (${generateLazy ? '!eager && IO' : 'false'}) {
+    if (!eager && IO) {
         IO.observe(el);
     } else {
         initComponent(el,par[k]);
@@ -220,7 +217,7 @@ export default (page: Page) => {
       priority: 30,
       string: `<script type="module">
             const requestIdleCallback = window.requestIdleCallback || ( cb => window.setTimeout(cb,1) );
-      ${defaultElderHelpers(decompressCode, relPrefix, deferString.length > 0)}
+      ${defaultElderHelpers(decompressCode, relPrefix)}
       ${eagerString.length > 0 ? `$$ejs({${eagerString}},true)` : ''}${
         deferString.length > 0
           ? `
